@@ -1,5 +1,7 @@
 ﻿using AutoMapper;
+using Candle_API.Data.DTOs.Colors;
 using Candle_API.Data.DTOs.Product;
+using Candle_API.Data.DTOs.Size;
 using Candle_API.Data.Entities;
 using Candle_API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +28,7 @@ namespace Candle_API.Services.Implementations
         // Get all products
         public async Task<IEnumerable<ProductDto>> GetAllProductsAsync()
         {
-            var products = await _context.Products
+            var products = await _context.Set<Product>()
                 .Include(p => p.SubCategory)
                 .Include(p => p.ProductColors)
                     .ThenInclude(pc => pc.Color)
@@ -47,19 +49,30 @@ namespace Candle_API.Services.Implementations
         // Get product by ID
         public async Task<ProductDto> GetProductByIdAsync(int id)
         {
-            var product = await _context.Products
-                .Include(p => p.SubCategory)
-                .Include(p => p.ProductColors)
-                    .ThenInclude(pc => pc.Color)
-                .Include(p => p.ProductSizes)
-                    .ThenInclude(ps => ps.Size)
-                    .AsNoTracking()
-                .FirstOrDefaultAsync(p => p.Id == id);
+            try
+            {
+                var product = await _context.Set<Product>()
+               .Include(p => p.SubCategory)
+               .Include(p => p.ProductColors)
+                   .ThenInclude(pc => pc.Color)
+               .Include(p => p.ProductSizes)
+                   .ThenInclude(ps => ps.Size)
+                   .AsNoTracking()
+               .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (product == null)
+                if(product == null) throw new NullReferenceException();
+
+
+                return _mapper.Map<ProductDto>(product);
+
+            }
+            catch (NullReferenceException ex)
+            {
+                _logger.LogError(ex, $"Error al obtener el producto con ID: {id}");
                 throw new KeyNotFoundException($"No se encontró el producto con ID: {id}");
 
-            return _mapper.Map<ProductDto>(product);
+            }
+
         }
 
 
@@ -508,6 +521,86 @@ namespace Candle_API.Services.Implementations
 
 
 
+        }
+
+
+
+        public async Task<ProductColorAssociationDto> AssociateColorAsync(int productId, AssociateColorDto associateColorDto)
+        {
+            var product = await _context.Products
+                .Include(p => p.ProductColors)
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            if (product == null)
+                throw new KeyNotFoundException($"No se encontró el producto con ID: {productId}");
+
+            var color = await _context.Colors
+                .FirstOrDefaultAsync(c => c.Id == associateColorDto.ColorId);
+
+            if (color == null)
+                throw new KeyNotFoundException($"No se encontró el color con ID: {associateColorDto.ColorId}");
+
+            // Verificar si ya existe la asociación
+            if (product.ProductColors.Any(pc => pc.ColorId == associateColorDto.ColorId))
+                throw new InvalidOperationException($"El color ya está asociado a este producto");
+
+            var productColor = new ProductColor
+            {
+                ProductId = productId,
+                ColorId = associateColorDto.ColorId,
+                Stock = associateColorDto.Stock
+            };
+
+            product.ProductColors.Add(productColor);
+            await _context.SaveChangesAsync();
+
+            return new ProductColorAssociationDto
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Color = _mapper.Map<ColorDto>(color),
+                Stock = associateColorDto.Stock
+            };
+        }
+
+        //asociar tamaño al producto
+
+        public async Task<ProductSizeAssociationDto> AssociateSizeAsync(int productId, AssociateSizeDto associateSizeDto)
+        {
+            var product = await _context.Products
+                .Include(p => p.ProductSizes)
+                .FirstOrDefaultAsync(p => p.Id == productId);
+
+            if (product == null)
+                throw new KeyNotFoundException($"No se encontró el producto con ID: {productId}");
+
+            var size = await _context.Sizes
+                .FirstOrDefaultAsync(s => s.Id == associateSizeDto.SizeId);
+
+            if (size == null)
+                throw new KeyNotFoundException($"No se encontró el tamaño con ID: {associateSizeDto.SizeId}");
+
+            // Verificar si ya existe la asociación
+            if (product.ProductSizes.Any(ps => ps.SizeId == associateSizeDto.SizeId))
+                throw new InvalidOperationException($"El tamaño ya está asociado a este producto");
+
+            var productSize = new ProductSize
+            {
+                ProductId = productId,
+                SizeId = associateSizeDto.SizeId,
+                Stock = associateSizeDto.Stock
+            };
+
+            product.ProductSizes.Add(productSize);
+            await _context.SaveChangesAsync();
+
+            return new ProductSizeAssociationDto
+            {
+                ProductId = product.Id,
+                ProductName = product.Name,
+                Size = _mapper.Map<SizeDto>(size),
+                Stock = associateSizeDto.Stock
+            };
         }
 
 

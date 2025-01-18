@@ -21,6 +21,9 @@ namespace Candle_API.Services.Interfaces
         Task<ProductDto> RemoveProductColorAsync(int productId, int colorId);
 
         Task<ProductSubcategoryChangeDto> ChangeProductSubcategoryAsync(int productId, int newSubcategoryId);
+
+        Task<ProductColorAssociationDto> AssociateColorAsync(int productId, AssociateColorDto associateColorDto);
+        Task<ProductSizeAssociationDto> AssociateSizeAsync(int productId, AssociateSizeDto associateSizeDto);
     }
 
 }

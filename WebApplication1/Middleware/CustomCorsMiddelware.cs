@@ -1,4 +1,5 @@
 ﻿using Candle_API.CoreSettings;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Options;
 
 namespace Candle_API.Middleware
@@ -8,6 +9,7 @@ namespace Candle_API.Middleware
     {
         private readonly RequestDelegate _next;
         private readonly CorsSettings _corsSettings;
+        private readonly IConfiguration _configuration;
         private readonly ILogger<CustomCorsMiddleware> _logger;
         private readonly IWebHostEnvironment _environment;
 
@@ -15,16 +17,25 @@ namespace Candle_API.Middleware
             RequestDelegate next,
             IOptions<CorsSettings> corsSettings,
             ILogger<CustomCorsMiddleware> logger,
-            IWebHostEnvironment environment)
+            IWebHostEnvironment environment,
+            IConfiguration configuration)
+           
         {
             _next = next;
             _corsSettings = corsSettings.Value;
             _logger = logger;
             _environment = environment;
+            _configuration = configuration;
         }
 
         public async Task InvokeAsync(HttpContext context)
         {
+            var corsSettings = _configuration.GetSection("Cors").Get<CorsSettings>() ?? new CorsSettings
+            {
+                AllowedOrigins = new[] { "*" }, // Valor por defecto para desarrollo
+                AllowedMethods = new[] { "GET", "POST", "PUT", "DELETE", "OPTIONS" },
+                AllowedHeaders = new[] { "Content-Type", "Authorization", "Accept" }
+            };
             var origin = context.Request.Headers.Origin.ToString();
 
             if (!string.IsNullOrEmpty(origin))
@@ -41,16 +52,30 @@ namespace Candle_API.Middleware
                     return;
                 }
 
-                // Configurar headers CORS
-                context.Response.Headers.Add("Access-Control-Allow-Origin", origin);
-                context.Response.Headers.Add("Access-Control-Allow-Methods",
-                    string.Join(",", _corsSettings.AllowedMethods));
-                context.Response.Headers.Add("Access-Control-Allow-Headers",
-                    string.Join(",", _corsSettings.AllowedHeaders));
-                context.Response.Headers.Add("Access-Control-Expose-Headers",
-                    string.Join(",", _corsSettings.ExposedHeaders));
-                context.Response.Headers.Add("Access-Control-Max-Age",
-                    _corsSettings.MaxAge.ToString());
+                if (_environment.IsDevelopment())
+                {
+                    context.Response.Headers.Add("Access-Control-Allow-Origin", origin);
+                    context.Response.Headers.Add(
+                        "Access-Control-Allow-Methods",
+                        string.Join(", ", corsSettings.AllowedMethods ?? Array.Empty<string>()));
+                    context.Response.Headers.Add(
+                        "Access-Control-Allow-Headers",
+                        string.Join(", ", corsSettings.AllowedHeaders ?? Array.Empty<string>()));
+                }
+                else
+                {
+                    var allowedOrigins = corsSettings.AllowedOrigins ?? Array.Empty<string>();
+                    if (allowedOrigins.Contains(origin))
+                    {
+                        context.Response.Headers.Add("Access-Control-Allow-Origin", origin);
+                        context.Response.Headers.Add(
+                            "Access-Control-Allow-Methods",
+                            string.Join(", ", corsSettings.AllowedMethods ?? Array.Empty<string>()));
+                        context.Response.Headers.Add(
+                            "Access-Control-Allow-Headers",
+                            string.Join(", ", corsSettings.AllowedHeaders ?? Array.Empty<string>()));
+                    }
+                }
 
                 // Manejar preflight requests
                 if (context.Request.Method == "OPTIONS")

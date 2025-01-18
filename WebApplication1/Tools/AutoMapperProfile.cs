@@ -1,7 +1,10 @@
 ﻿// Mappings/AutoMapperProfile.cs
 using AutoMapper;
 using Candle_API.Data.DTOs.Categories;
+using Candle_API.Data.DTOs.Colors;
 using Candle_API.Data.DTOs.Product;
+using Candle_API.Data.DTOs.Size;
+using Candle_API.Data.DTOs.SubCategories;
 using Candle_API.Data.Entities;
 
 
@@ -30,9 +33,19 @@ public class AutoMapperProfile : Profile
                       opt => opt.MapFrom(src => src.Color.Name))
             .ForMember(dest => dest.HexCode,
                       opt => opt.MapFrom(src => src.Color.HexCode));
+           
         CreateMap<ProductSize, ProductSizeDto>()
             .ForMember(dest => dest.SizeName,
                       opt => opt.MapFrom(src => src.Size.Name));
+
+        CreateMap<SubCategory, SubCategoryDto>()
+        .ForMember(dest => dest.CategoryName,
+                  opt => opt.MapFrom(src => src.Category.Name));
+
+
+        CreateMap<Color, ColorDto>();
+
+        CreateMap<Size, SizeDto>();
 
 
 

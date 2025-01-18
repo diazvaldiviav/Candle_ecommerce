@@ -1,4 +1,6 @@
-﻿using System.ComponentModel.DataAnnotations;
+﻿using Candle_API.Data.DTOs.Colors;
+using Candle_API.Data.DTOs.Size;
+using System.ComponentModel.DataAnnotations;
 
 namespace Candle_API.Data.DTOs.Product
 {
@@ -11,6 +13,7 @@ namespace Candle_API.Data.DTOs.Product
         public int Stock { get; set; }
         public int SubcategoryId { get; set; }
         public string SubcategoryName { get; set; }
+        public string ImageUrl { get; set; }
         public DateTime CreatedAt { get; set; }
         public ICollection<ProductColorDto> ProductColors { get; set; }
         public ICollection<ProductSizeDto> ProductSizes { get; set; }
@@ -73,12 +76,14 @@ namespace Candle_API.Data.DTOs.Product
         public int ColorId { get; set; }
         public string ColorName { get; set; }
         public string HexCode { get; set; }
+        public int Stock { get; set; }
     }
 
     public class ProductSizeDto
     {
         public int SizeId { get; set; }
         public string SizeName { get; set; }
+        public int Stock { get; set; }
     }
 
     //Crear size DTO
@@ -146,5 +151,68 @@ namespace Candle_API.Data.DTOs.Product
         public string OldSubcategory { get; set; }
         public string NewCategory { get; set; }
         public string NewSubcategory { get; set; }
+    }
+
+
+    // DTOs/ProductColorDtos.cs
+    /// <summary>
+    /// DTO para asociar un color a un producto
+    /// </summary>
+    public class AssociateColorDto
+    {
+        /// <summary>
+        /// ID del color a asociar
+        /// </summary>
+        [Required(ErrorMessage = "El ID del color es requerido")]
+        public int ColorId { get; set; }
+
+        /// <summary>
+        /// Stock disponible para esta variante de color
+        /// </summary>
+        [Required(ErrorMessage = "El stock es requerido")]
+        [Range(0, int.MaxValue, ErrorMessage = "El stock debe ser un número positivo")]
+        public int Stock { get; set; }
+    }
+
+    /// <summary>
+    /// DTO para la respuesta de asociación de color
+    /// </summary>
+    public class ProductColorAssociationDto
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; }
+        public ColorDto Color { get; set; }
+        public int Stock { get; set; }
+    }
+
+    // DTOs/ProductSizeDtos.cs
+    /// <summary>
+    /// DTO para asociar un tamaño a un producto
+    /// </summary>
+    public class AssociateSizeDto
+    {
+        /// <summary>
+        /// ID del tamaño a asociar
+        /// </summary>
+        [Required(ErrorMessage = "El ID del tamaño es requerido")]
+        public int SizeId { get; set; }
+
+        /// <summary>
+        /// Stock disponible para esta variante de tamaño
+        /// </summary>
+        [Required(ErrorMessage = "El stock es requerido")]
+        [Range(0, int.MaxValue, ErrorMessage = "El stock debe ser un número positivo")]
+        public int Stock { get; set; }
+    }
+
+    /// <summary>
+    /// DTO para la respuesta de asociación de tamaño
+    /// </summary>
+    public class ProductSizeAssociationDto
+    {
+        public int ProductId { get; set; }
+        public string ProductName { get; set; }
+        public SizeDto Size { get; set; }
+        public int Stock { get; set; }
     }
 }

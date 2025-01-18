@@ -184,6 +184,12 @@ public class CategoriesController : ControllerBase
 
 
     // anadir subcategoria a categoria
+
+    ///<summary>
+    /// Añade una subcategoría a una categoría, DONDE id es el ID de la categoría A LA QUE SE LE AÑADIRÁ LA SUBCATEGORÍA
+    ///</summary>
+    ///<!--<param name="id">ID de la categoría</param>-->-->
+    ///<returns>La categoría con la subcategoría añadida</returns>
     [HttpPost("{id}/subcategories")]
     [ProducesResponseType(typeof(CategoryDto), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]

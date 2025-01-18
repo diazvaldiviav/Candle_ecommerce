@@ -2,11 +2,19 @@
 using Microsoft.AspNetCore.Mvc;
 using Candle_API.Services.Interfaces;
 
+
+/// <summary>
+/// Controlador para la gestión de productos
+/// </summary>
+
 namespace Candle_API.Controllers
 {
+    
     // Controllers/ProductsController.cs
     [Route("api/[controller]")]
     [ApiController]
+    [Produces("application/json")]
+    [Tags("Productos")]
     public class ProductsController : ControllerBase
     {
         private readonly IProduct _productService;
@@ -19,6 +27,16 @@ namespace Candle_API.Controllers
             _productService = productService;
             _logger = logger;
         }
+
+
+        /// <summary>
+        /// Obtiene un producto por su ID
+        /// </summary>
+        /// <param name="id">ID del producto</param>
+        /// <returns>Información detallada del producto</returns>
+        /// <response code="200">Retorna el producto solicitado</response>
+        /// <response code="404">Si el producto no existe</response>
+        /// <response code="500">Error interno del servidor</response>
 
         // GET: api/Products
         [HttpGet]
@@ -175,8 +193,7 @@ namespace Candle_API.Controllers
         }
 
 
-        // POST: api/Products/5/sizes
-        // Controllers/ProductsController.cs
+        //crear nuevo size para el producto
         [HttpPost("{id}/size/new")]
         [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -341,7 +358,23 @@ namespace Candle_API.Controllers
 
 
         //Anadir color al producto
-        // Controllers/ProductsController.cs
+
+        /// <summary>
+        /// Agrega un nuevo color a un producto existente
+        /// </summary>
+        /// <param name="id">ID del producto</param>
+        /// <param name="colorDto">Información del color a agregar</param>
+        /// <returns>Producto actualizado con el nuevo color</returns>
+        /// <remarks>
+        /// Ejemplo de request:
+        /// 
+        ///     POST /api/products/1/color
+        ///     {
+        ///         "name": "Rojo",
+        ///         "hexCode": "#FF0000"
+        ///     }
+        /// </remarks>
+
 [HttpPost("{id}/color")]
 [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
 [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -457,7 +490,6 @@ public async Task<ActionResult<ProductDto>> AddColorToProduct(int id, [FromBody]
 
 
         //Remove color from product
-        // Controllers/ProductsController.cs
         [HttpDelete("{productId}/color/{colorId}")]
         [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -509,7 +541,22 @@ public async Task<ActionResult<ProductDto>> AddColorToProduct(int id, [FromBody]
 
 
         //change product subcategory
-        // Controllers/ProductsController.cs
+
+        /// <summary>
+        ///You can change the category in the product that already exists
+        /// </summary>
+        /// <param name="id">Product ID</param>
+        /// <param name="subcategoryId">Subcategory ID</param>
+        /// <returns>Producto actualizado con el nuevo color</returns>
+        /// <remarks>
+        /// Ejemplo de request:
+        /// 
+        ///     PUT /api/{id}/subcategory
+        ///     {
+        ///         "ProductId": 1,
+        ///         "SubcategoryId": 1
+        ///     }
+        /// </remarks>
         [HttpPut("{productId}/subcategory")]
         [ProducesResponseType(typeof(ProductDto), StatusCodes.Status200OK)]
         [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -557,6 +604,110 @@ public async Task<ActionResult<ProductDto>> AddColorToProduct(int id, [FromBody]
                 return StatusCode(500, new
                 {
                     message = "Error interno del servidor al cambiar la subcategoría del producto"
+                });
+            }
+        }
+
+
+       
+        /// <summary>
+        /// Asocia un color existente a un producto
+        /// </summary>
+        /// <param name="id">ID del producto</param>
+        /// <param name="associateColorDto">Información del color a asociar</param>
+        /// <returns>Detalles de la asociación creada</returns>
+        /// <response code="200">Asociación creada exitosamente</response>
+        /// <response code="400">Si ya existe la asociación o datos inválidos</response>
+        /// <response code="404">Si el producto o el color no existen</response>
+        /// <response code="500">Error interno del servidor</response>
+        [HttpPost("{id}/colors")]
+        [ProducesResponseType(typeof(ProductColorAssociationDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ProductColorAssociationDto>> AssociateColor(
+            int id,
+            [FromBody] AssociateColorDto associateColorDto)
+        {
+            try
+            {
+                var result = await _productService.AssociateColorAsync(id, associateColorDto);
+                _logger.LogInformation(
+                    "Color {ColorId} asociado exitosamente al producto {ProductId}",
+                    associateColorDto.ColorId,
+                    id);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error al asociar color {ColorId} al producto {ProductId}",
+                    associateColorDto.ColorId,
+                    id);
+                return StatusCode(500, new
+                {
+                    message = "Error interno del servidor al asociar el color al producto"
+                });
+            }
+        }
+
+
+        // Controllers/ProductsController.cs
+        /// <summary>
+        /// Asocia un tamaño existente a un producto
+        /// </summary>
+        /// <param name="id">ID del producto</param>
+        /// <param name="associateSizeDto">Información del tamaño a asociar</param>
+        /// <returns>Detalles de la asociación creada</returns>
+        /// <response code="200">Asociación creada exitosamente</response>
+        /// <response code="400">Si ya existe la asociación o datos inválidos</response>
+        /// <response code="404">Si el producto o el tamaño no existen</response>
+        /// <response code="500">Error interno del servidor</response>
+        [HttpPost("{id}/sizes")]
+        [ProducesResponseType(typeof(ProductSizeAssociationDto), StatusCodes.Status200OK)]
+        [ProducesResponseType(StatusCodes.Status400BadRequest)]
+        [ProducesResponseType(StatusCodes.Status404NotFound)]
+        [ProducesResponseType(StatusCodes.Status500InternalServerError)]
+        public async Task<ActionResult<ProductSizeAssociationDto>> AssociateSize(
+            int id,
+            [FromBody] AssociateSizeDto associateSizeDto)
+        {
+            try
+            {
+                var result = await _productService.AssociateSizeAsync(id, associateSizeDto);
+                _logger.LogInformation(
+                    "Tamaño {SizeId} asociado exitosamente al producto {ProductId}",
+                    associateSizeDto.SizeId,
+                    id);
+                return Ok(result);
+            }
+            catch (KeyNotFoundException ex)
+            {
+                return NotFound(new { message = ex.Message });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { message = ex.Message });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Error al asociar tamaño {SizeId} al producto {ProductId}",
+                    associateSizeDto.SizeId,
+                    id);
+                return StatusCode(500, new
+                {
+                    message = "Error interno del servidor al asociar el tamaño al producto"
                 });
             }
         }
