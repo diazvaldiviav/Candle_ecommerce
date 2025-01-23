@@ -4,14 +4,15 @@ import { lazy } from 'react';
 
 
 // Lazy loading de páginas
- const Home = lazy(() => import('../features/home/pages/Home'));
- const Products = lazy(() => import('../features/products/pages/Products'));
+ const Home = lazy(() => import('../component/layout/pages/home/Home'));
  //const ProductDetail = lazy(() => import('../features/products/pages/ProductDetails'));
  const CategoryList = lazy(() => import('../features/categories/pages/categoryList'));
  const CategoryWithSubcategories = lazy(() => import('../features/categories/pages/CategoryWithSubcategories'));
  //const Login = lazy(() => import('../features/auth/pages/Login'));
 // const Register = lazy(() => import('../features/auth/pages/Register'));
 const NotFound = lazy(() => import('../component/common/NotFound'));
+const ProductPage = lazy(() => import('../features/products/pages/ProductPage'));
+const ProductDetails = lazy(() => import('../features/products/pages/ProductDetails'));
 
 export const router = createBrowserRouter([
   {
@@ -26,10 +27,14 @@ export const router = createBrowserRouter([
       {
         path: 'products',
         children: [
-          {
+           {
             index: true,
-            element: <Products />,
-          }
+            element: <ProductPage />,
+            },
+            {
+            path: ':id',
+            element: <ProductDetails />,
+           }
         ],
       },
         {
