@@ -89,12 +89,8 @@ const SelectWrapper = styled(FormControl)(({ theme }) => ({
 
 // ... (resto de los styled components igual que antes)
 
-export interface ProductDetailsProps {
-  productId: number;
-  onAddToCart: (productId: number, quantity: number) => void;
-}
 
-const ProductDetails: React.FC<ProductDetailsProps> = () => {
+const ProductDetails: React.FC = () => {
   const dispatch = useAppDispatch();
   const { selectedProduct: product, loading, error } = useAppSelector(state => state.products);
  // const [selectedImage, setSelectedImage] = useState(0);
