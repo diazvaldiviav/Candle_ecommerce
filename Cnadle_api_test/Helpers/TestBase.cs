@@ -3,6 +3,7 @@ using Microsoft.Extensions.Logging;
 using AutoMapper;
 using Moq;
 using Microsoft.EntityFrameworkCore;
+using Candle_api_test.TestData;
 
 namespace Candle_API_test.Helpers.TestBase;
 public abstract class TestBase
@@ -25,13 +26,23 @@ public abstract class TestBase
         return new Mock<ILogger<T>>();
     }
 
-    protected Mock<DbSet<T>> CreateMockDbSet<T>(IQueryable<T> data) where T : class
+    // Método helper para crear mock DbSet con datos
+    public Mock<DbSet<T>> CreateMockDbSet<T>(List<T> data) where T : class
     {
+        var queryableData = data.AsQueryable();
         var mockSet = new Mock<DbSet<T>>();
-        mockSet.As<IQueryable<T>>().Setup(m => m.Provider).Returns(data.Provider);
-        mockSet.As<IQueryable<T>>().Setup(m => m.Expression).Returns(data.Expression);
-        mockSet.As<IQueryable<T>>().Setup(m => m.ElementType).Returns(data.ElementType);
-        mockSet.As<IQueryable<T>>().Setup(m => m.GetEnumerator()).Returns(data.GetEnumerator());
+
+        mockSet.As<IQueryable<T>>().Setup(m => m.Provider)
+            .Returns(new TestAsyncQueryProvider<T>(queryableData.Provider));
+        mockSet.As<IQueryable<T>>().Setup(m => m.Expression)
+            .Returns(queryableData.Expression);
+        mockSet.As<IQueryable<T>>().Setup(m => m.ElementType)
+            .Returns(queryableData.ElementType);
+        mockSet.As<IQueryable<T>>().Setup(m => m.GetEnumerator())
+            .Returns(queryableData.GetEnumerator());
+
         return mockSet;
     }
+
+
 }

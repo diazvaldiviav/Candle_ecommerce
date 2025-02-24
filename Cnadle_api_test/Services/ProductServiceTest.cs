@@ -8,6 +8,7 @@ using Candle_API.Services.Implementations;
 using Candle_API_test.Helpers.TestBase;
 using Candle_API_test.TestData.TestDataHelper;
 using Candle_api_test.TestData;
+using System.Linq.Expressions;
 
 
 namespace Candle_API.Tests.Services
@@ -204,7 +205,15 @@ namespace Candle_API.Tests.Services
             {
                 Name = "New Product",
                 Description = "New Description",
-                Price = 29.99m
+                Price = 29.99m,
+                SubcategoryId = 1,
+                ImageUrl = "http://example.com/image.jpg"
+            };
+
+            var subcategory = new SubCategory
+            {
+                Id = 1,
+                Name = "Test Subcategory"
             };
 
             var expectedProduct = new Product
@@ -212,7 +221,20 @@ namespace Candle_API.Tests.Services
                 Id = 1,
                 Name = createDto.Name,
                 Description = createDto.Description,
-                Price = createDto.Price
+                Price = createDto.Price,
+                SubcategoryId = createDto.SubcategoryId,
+                CreatedAt = DateTime.UtcNow,
+                SubCategory = subcategory,
+                ProductImages = new List<ProductImage>
+    {
+        new ProductImage
+        {
+            Id = 1,
+            ImageUrl = createDto.ImageUrl,
+            IsMain = true,
+            ProductId = 1
+        }
+    }
             };
 
             var expectedDto = new ProductDto
@@ -220,13 +242,32 @@ namespace Candle_API.Tests.Services
                 Id = expectedProduct.Id,
                 Name = expectedProduct.Name,
                 Description = expectedProduct.Description,
-                Price = expectedProduct.Price
+                Price = expectedProduct.Price,
+                SubcategoryId = expectedProduct.SubcategoryId,
+                CreatedAt = expectedProduct.CreatedAt,
+                ProductImages = expectedProduct.ProductImages.Select(img => new ProductImageDto
+                {
+                    Id = img.Id,
+                    ImageUrl = img.ImageUrl,
+                    IsMain = img.IsMain
+                }).ToList()
             };
 
+            // Mock para Subcategories
+            var mockSubcategoriesSet = CreateMockDbSet(new List<SubCategory> { subcategory });
+
+            // Mock para Products con el producto esperado
+            var mockProductsSet = CreateMockDbSet(new List<Product> { expectedProduct });
+
+            // Setup del Context
+            MockContext.Setup(c => c.Set<SubCategory>()).Returns(mockSubcategoriesSet.Object);
+            MockContext.Setup(c => c.Set<Product>()).Returns(mockProductsSet.Object);
+
+            // Setup del Mapper
             MockMapper.Setup(m => m.Map<Product>(createDto))
                 .Returns(expectedProduct);
 
-            MockMapper.Setup(m => m.Map<ProductDto>(expectedProduct))
+            MockMapper.Setup(m => m.Map<ProductDto>(It.IsAny<Product>()))
                 .Returns(expectedDto);
 
             // Act
@@ -235,8 +276,64 @@ namespace Candle_API.Tests.Services
             // Assert
             result.Should().NotBeNull();
             result.Should().BeEquivalentTo(expectedDto);
-            MockContext.Verify(m => m.Set<Product>().Add(It.IsAny<Product>()), Times.Once);
-            MockContext.Verify(m => m.SaveChangesAsync(It.IsAny<CancellationToken>()), Times.Once);
+
+            mockProductsSet.Verify(m => m.Add(It.Is<Product>(p =>
+     p.Name == createDto.Name &&
+     p.Description == createDto.Description &&
+     p.Price == createDto.Price &&
+     p.SubcategoryId == createDto.SubcategoryId &&
+     p.ProductImages.Any(img => img.ImageUrl == createDto.ImageUrl && img.IsMain))), // Verificamos la imagen principal
+     Times.Once);
+
+            MockContext.Verify(m => m.SaveChangesAsync(It.IsAny<CancellationToken>()),
+                Times.Once);
+        }
+
+
+
+
+
+        [Fact]
+        public async Task CreateProductAsync_InvalidSubcategoryId_ThrowsKeyNotFoundException()
+        {
+            // Arrange
+            var createDto = new CreateProductDto
+            {
+                Name = "New Product",
+                Description = "New Description",
+                Price = 29.99m,
+                SubcategoryId = 999,
+                ImageUrl = "http://example.com/image.jpg"
+            };
+
+            // Crear mock del DbSet con implementación async
+            var mockSet = new Mock<DbSet<SubCategory>>();
+            var mockData = new List<SubCategory>().AsQueryable();
+
+            mockSet.As<IQueryable<SubCategory>>().Setup(m => m.Provider).Returns(mockData.Provider);
+            mockSet.As<IQueryable<SubCategory>>().Setup(m => m.Expression).Returns(mockData.Expression);
+            mockSet.As<IQueryable<SubCategory>>().Setup(m => m.ElementType).Returns(mockData.ElementType);
+            mockSet.As<IQueryable<SubCategory>>().Setup(m => m.GetEnumerator()).Returns(mockData.GetEnumerator());
+
+            // Setup para async operations
+            mockSet.As<IAsyncEnumerable<SubCategory>>()
+                .Setup(m => m.GetAsyncEnumerator(It.IsAny<CancellationToken>()))
+                .Returns(new TestAsyncEnumerator<SubCategory>(mockData.GetEnumerator()));
+
+            mockSet.As<IQueryable<SubCategory>>()
+                .Setup(m => m.Provider)
+                .Returns(new TestAsyncQueryProvider<SubCategory>(mockData.Provider));
+
+            // Setup del Context
+            MockContext.Setup(c => c.Set<SubCategory>()).Returns(mockSet.Object);
+
+            // Act & Assert
+            var exception = await Assert.ThrowsAsync<KeyNotFoundException>(
+                async () => await _productService.CreateProductAsync(createDto)
+            );
+
+            // Verificar el mensaje de la excepción
+            exception.Message.Should().Be($"No se encontró la subcategoría con ID: {createDto.SubcategoryId}");
         }
 
         [Fact]

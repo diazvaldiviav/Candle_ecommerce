@@ -1,4 +1,5 @@
 ﻿using Candle_API.Data.DTOs.Product;
+using Candle_API.Data.Entities;
 
 namespace Candle_API.Services.Interfaces
 {
@@ -24,6 +25,9 @@ namespace Candle_API.Services.Interfaces
 
         Task<ProductColorAssociationDto> AssociateColorAsync(int productId, AssociateColorDto associateColorDto);
         Task<ProductSizeAssociationDto> AssociateSizeAsync(int productId, AssociateSizeDto associateSizeDto);
+        Task<ProductResponseDTO> AddProductImagesAsync(AddProductImagesDTO imagesDto);
+        Task<ProductResponseDTO> SetMainImageAsync(UpdateMainImageDTO updateDto);
+        Task<ProductResponseDTO> DeleteProductImageAsync(int productId, int imageId);
     }
 
 }

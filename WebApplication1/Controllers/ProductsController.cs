@@ -1,6 +1,7 @@
 ﻿using Candle_API.Data.DTOs.Product;
 using Microsoft.AspNetCore.Mvc;
 using Candle_API.Services.Interfaces;
+using Candle_API.Tools;
 
 
 /// <summary>
@@ -709,6 +710,83 @@ public async Task<ActionResult<ProductDto>> AddColorToProduct(int id, [FromBody]
                 {
                     message = "Error interno del servidor al asociar el tamaño al producto"
                 });
+            }
+        }
+
+
+        [HttpPost("{id}/images")]
+        public async Task<ActionResult<ProductResponseDTO>> AddProductImages(int id, [FromBody] AddProductImagesDTO imagesDto)
+        {
+            try
+            {
+                if (id != imagesDto.ProductId)
+                {
+                    return BadRequest("El ID del producto no coincide");
+                }
+
+                var result = await _productService.AddProductImagesAsync(imagesDto);
+                return Ok(result);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+            }
+        }
+
+
+
+        [HttpPatch("{productId}/images/{imageId}/main")] 
+        public async Task<IActionResult> SetMainImage(int productId, int imageId)
+        {
+            try
+            {
+                var updateDto = new UpdateMainImageDTO
+                {
+                    ProductId = productId,
+                    ImageId = imageId
+                };
+
+                var result = await _productService.SetMainImageAsync(updateDto);
+                return Ok(result);
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno del servidor: {ex.Message}");
+            }
+        }
+
+        [HttpDelete("{productId}/images/{imageId}")]
+        public async Task<IActionResult> DeleteProductImage(int productId, int imageId)
+        {
+            try
+            {
+                // Validar que no se pueda eliminar si es la única imagen
+                await _productService.DeleteProductImageAsync(productId, imageId);
+                return NoContent();
+            }
+            catch (NotFoundException ex)
+            {
+                return NotFound(ex.Message);
+            }
+            catch (BadRequestException ex)
+            {
+                return BadRequest(ex.Message);
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Error interno del servidor: {ex.Message}");
             }
         }
     }

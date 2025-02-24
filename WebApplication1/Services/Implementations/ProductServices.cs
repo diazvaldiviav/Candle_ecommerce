@@ -5,6 +5,7 @@ using Candle_API.Data.DTOs.Size;
 using Candle_API.Data.Entities;
 using Candle_API.Services.Interfaces;
 using Microsoft.EntityFrameworkCore;
+using Candle_API.Tools;
 
 namespace Candle_API.Services.Implementations
 {
@@ -52,12 +53,15 @@ namespace Candle_API.Services.Implementations
             try
             {
                 var product = await _context.Set<Product>()
+                .AsNoTracking()
                .Include(p => p.SubCategory)
                .Include(p => p.ProductColors)
                    .ThenInclude(pc => pc.Color)
                .Include(p => p.ProductSizes)
                    .ThenInclude(ps => ps.Size)
-                   .AsNoTracking()
+                   .Include(p => p.ProductImages)
+                   .Include(p => p.ProductAromas)
+                   .ThenInclude(p => p.Aroma)
                .FirstOrDefaultAsync(p => p.Id == id);
 
                 if(product == null) throw new NullReferenceException();
@@ -79,20 +83,29 @@ namespace Candle_API.Services.Implementations
         // Create a product
         public async Task<ProductDto> CreateProductAsync(CreateProductDto createProductDto)
         {
-            var subcategory = await _context.Subcategories
-                .FirstOrDefaultAsync(s => s.Id == createProductDto.SubcategoryId);
+            try
+            {
+                var subcategory = await _context.Set<SubCategory>()
+               .FirstOrDefaultAsync(s => s.Id == createProductDto.SubcategoryId);
 
-            if (subcategory == null)
+                if (subcategory == null)
+                    throw new NullReferenceException();
+
+                var product = _mapper.Map<Product>(createProductDto);
+                product.CreatedAt = DateTime.UtcNow;
+
+              
+                _context.Set<Product>().Add(product);
+                await _context.SaveChangesAsync();
+
+                return await GetProductByIdAsync(product.Id);
+            }
+            catch (NullReferenceException ex)
+            {
+                _logger.LogError(ex, "Error al crear un producto");
                 throw new KeyNotFoundException($"No se encontró la subcategoría con ID: {createProductDto.SubcategoryId}");
-
-            var product = _mapper.Map<Product>(createProductDto);
-            product.ImageUrl = createProductDto.ImageUrl;
-            product.CreatedAt = DateTime.UtcNow;
-
-            _context.Products.Add(product);
-            await _context.SaveChangesAsync();
-
-            return await GetProductByIdAsync(product.Id);
+            }
+           
         }
 
 
@@ -601,6 +614,145 @@ namespace Candle_API.Services.Implementations
                 Size = _mapper.Map<SizeDto>(size),
                 Stock = associateSizeDto.Stock
             };
+        }
+
+
+        //add image to product
+        public async Task<ProductResponseDTO> AddProductImagesAsync(AddProductImagesDTO imagesDto)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var product = await _context.Products
+                    .Include(p => p.ProductImages)
+                    .FirstOrDefaultAsync(p => p.Id == imagesDto.ProductId);
+
+                if (product == null)
+                {
+                    throw new NotFoundException($"No se encontró el producto con ID {imagesDto.ProductId}");
+                }
+
+                // Verificar el límite de imágenes
+                var currentImagesCount = product.ProductImages?.Count ?? 0;
+                if (currentImagesCount + imagesDto.ImageUrls.Count > 5)
+                {
+                    throw new BadRequestException($"El producto no puede tener más de 5 imágenes. Actualmente tiene {currentImagesCount}");
+                }
+
+                // Agregar las nuevas imágenes
+                foreach (var imageUrl in imagesDto.ImageUrls)
+                {
+                    product.ProductImages.Add(new ProductImage
+                    {
+                        ImageUrl = imageUrl,
+                        IsMain = !product.ProductImages.Any(x => x.IsMain), // Primera imagen será principal si no hay otra
+                        ProductId = product.Id
+                    });
+                }
+
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return _mapper.Map<ProductResponseDTO>(product);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
+        }
+
+
+        //update main image
+        public async Task<ProductResponseDTO> SetMainImageAsync(UpdateMainImageDTO updateDto)
+        {
+            var product = await _context.Products
+                .Include(p => p.ProductImages)
+                .FirstOrDefaultAsync(p => p.Id == updateDto.ProductId);
+
+            if (product == null)
+            {
+                throw new NotFoundException($"No se encontró el producto con ID {updateDto.ProductId}");
+            }
+
+            var newMainImage = product.ProductImages?
+                .FirstOrDefault(i => i.Id == updateDto.ImageId);
+
+            if (newMainImage == null)
+            {
+                throw new NotFoundException($"No se encontró la imagen con ID {updateDto.ImageId} para el producto {updateDto.ProductId}");
+            }
+
+            // Primero, quitar el estado IsMain de la imagen principal actual si existe
+            var currentMainImage = product.ProductImages?
+                .FirstOrDefault(i => i.IsMain);
+
+            if (currentMainImage != null)
+            {
+                currentMainImage.IsMain = false;
+            }
+
+            // Establecer la nueva imagen como principal
+            newMainImage.IsMain = true;
+
+            await _context.SaveChangesAsync();
+            return _mapper.Map<ProductResponseDTO>(product);
+        }
+
+
+        //remove image
+        public async Task<ProductResponseDTO> DeleteProductImageAsync(int productId, int imageId)
+        {
+            using var transaction = await _context.Database.BeginTransactionAsync();
+            try
+            {
+                var product = await _context.Products
+                    .Include(p => p.ProductImages)
+                    .FirstOrDefaultAsync(p => p.Id == productId);
+
+                if (product == null)
+                {
+                    throw new NotFoundException($"No se encontró el producto con ID {productId}");
+                }
+
+                if (product.ProductImages == null || !product.ProductImages.Any())
+                {
+                    throw new NotFoundException($"El producto {productId} no tiene imágenes");
+                }
+
+                // Validar que no sea la única imagen
+                if (product.ProductImages.Count == 1)
+                {
+                    throw new BadRequestException("No se puede eliminar la única imagen del producto");
+                }
+
+                var imageToDelete = product.ProductImages
+                    .FirstOrDefault(i => i.Id == imageId);
+
+                if (imageToDelete == null)
+                {
+                    throw new NotFoundException($"No se encontró la imagen con ID {imageId} para el producto {productId}");
+                }
+
+                // Si la imagen a eliminar es la principal, asignar otra imagen como principal
+                if (imageToDelete.IsMain && product.ProductImages.Count > 1)
+                {
+                    var newMainImage = product.ProductImages
+                        .First(i => i.Id != imageId);
+                    newMainImage.IsMain = true;
+                }
+
+                _context.ProductImages.Remove(imageToDelete);
+                await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
+
+                return _mapper.Map<ProductResponseDTO>(product);
+            }
+            catch
+            {
+                await transaction.RollbackAsync();
+                throw;
+            }
         }
 
 

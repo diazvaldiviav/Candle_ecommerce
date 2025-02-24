@@ -5,6 +5,7 @@
         public int Id { get; set; }
         public int ProductId { get; set; }
         public int ColorId { get; set; }
+        public int AddicionalPrice { get; set; } = 0;
 
         public int Stock { get; set; }
 

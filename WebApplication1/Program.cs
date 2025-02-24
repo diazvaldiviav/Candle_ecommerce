@@ -6,6 +6,12 @@ using Microsoft.AspNetCore.CookiePolicy;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.OpenApi.Models;
 using System.Reflection;
+using System.Text.Json.Serialization;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using System.Text;
+
+
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,7 +24,7 @@ builder.Services.AddSwaggerGen();
 
 //Configuracion de la bd en memoria para desarrollo
 //builder.Services.AddDbContext<CandleDbContext>(options =>
-//  options.UseInMemoryDatabase("CandleShopDb"));
+  //options.UseInMemoryDatabase("CandleShopDb"));
 
 
 //configuracion sql server  
@@ -37,6 +43,36 @@ builder.Services.AddScoped<IProduct, ProductServices>();
 builder.Services.AddScoped<IColors, ColorServices>();
 builder.Services.AddScoped<ISizes, SizeServices>();
 builder.Services.AddScoped<ISubCategories, SubCategoriesServices>();
+builder.Services.AddScoped<IAromas, AromaService>();
+builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ICartService, CartService>();
+
+//authenticacion
+builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+    .AddJwtBearer(options =>
+    {
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuer = true,
+            ValidateAudience = true,
+            ValidateLifetime = true,
+            ValidateIssuerSigningKey = true,
+            ValidIssuer = builder.Configuration["Jwt:Issuer"],
+            ValidAudience = builder.Configuration["Jwt:Audience"],
+            IssuerSigningKey = new SymmetricSecurityKey(
+                Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+        };
+    });
+
+// Configuración de las políticas de autorización
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("RequireAdminRole", policy =>
+        policy.RequireRole("Admin"));
+
+    options.AddPolicy("RequireUserRole", policy =>
+        policy.RequireRole("User", "Admin")); // Admin también puede acceder a rutas de User
+});
 
 
 
@@ -52,6 +88,13 @@ builder.Services.Configure<CookiePolicyOptions>(options =>
 // Configurar CORS desde appsettings
 builder.Services.Configure<CorsSettings>(
     builder.Configuration.GetSection("Cors"));
+
+//JSON Serializer
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 
 
 // Program.cs
@@ -72,6 +115,31 @@ builder.Services.AddSwaggerGen(options =>
         {
             Name = "MIT License",
             Url = new Uri("https://opensource.org/licenses/MIT")
+        }
+    });
+
+    // Configuración del Bearer token
+    options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "JWT Authorization header using the Bearer scheme. Example: \"Authorization: Bearer {token}\"",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    options.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            new string[] {}
         }
     });
 
@@ -97,6 +165,8 @@ app.UseMiddleware<CustomCorsMiddleware>();
 app.UseMiddleware<AntiXssMiddleware>();
 app.UseMiddleware<AntiSqlInjectionMiddleware>();
 app.UseMiddleware<RateLimitingMiddleware>();
+
+
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())

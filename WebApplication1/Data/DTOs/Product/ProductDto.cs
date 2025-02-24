@@ -1,5 +1,6 @@
 ﻿using Candle_API.Data.DTOs.Colors;
 using Candle_API.Data.DTOs.Size;
+using Candle_API.Data.DTOs.Aromas;
 using System.ComponentModel.DataAnnotations;
 
 namespace Candle_API.Data.DTOs.Product
@@ -13,10 +14,11 @@ namespace Candle_API.Data.DTOs.Product
         public int Stock { get; set; }
         public int SubcategoryId { get; set; }
         public string SubcategoryName { get; set; }
-        public string ImageUrl { get; set; }
         public DateTime CreatedAt { get; set; }
         public ICollection<ProductColorDto> ProductColors { get; set; }
         public ICollection<ProductSizeDto> ProductSizes { get; set; }
+        public ICollection<ProductImageDto> ProductImages { get; set; }
+        public ICollection<ProductAromaDTO> ProductAromas { get; set; }
     }
 
     public class CreateProductDto
@@ -41,8 +43,6 @@ namespace Candle_API.Data.DTOs.Product
 
         [Required(ErrorMessage = "La URL de la imagen es requerida")]
         [Url(ErrorMessage = "Por favor ingrese una URL válida")]
-        [RegularExpression(@"^https?:\/\/.*\.(png|jpg|jpeg|gif|webp)$",
-        ErrorMessage = "La URL debe ser una imagen válida (png, jpg, jpeg, gif, webp)")]
         public string ImageUrl { get; set; }
     }
 
@@ -66,8 +66,6 @@ namespace Candle_API.Data.DTOs.Product
 
         [Required(ErrorMessage = "La URL de la imagen es requerida")]
         [Url(ErrorMessage = "Por favor ingrese una URL válida")]
-        [RegularExpression(@"^https?:\/\/.*\.(png|jpg|jpeg|gif|webp)$",
-       ErrorMessage = "La URL debe ser una imagen válida (png, jpg, jpeg, gif, webp)")]
         public string ImageUrl { get; set; }
     }
 
@@ -84,6 +82,44 @@ namespace Candle_API.Data.DTOs.Product
         public int SizeId { get; set; }
         public string SizeName { get; set; }
         public int Stock { get; set; }
+    }
+
+    public class ProductImageDto
+    {
+        public int Id { get; set; }
+        public string ImageUrl { get; set; }
+        public bool IsMain { get; set; }
+    }
+
+    // DTOs/UpdateMainImageDTO.cs
+    public class UpdateMainImageDTO
+    {
+        [Required]
+        public int ProductId { get; set; }
+
+        [Required]
+        public int ImageId { get; set; }
+    }
+
+    public class AddProductImagesDTO
+    {
+        [Required]
+        public int ProductId { get; set; }
+
+        [Required]
+        [MaxLength(5, ErrorMessage = "No se pueden agregar más de 5 imágenes")]
+        public List<string> ImageUrls { get; set; }
+    }
+
+    public class ProductResponseDTO
+    {
+        public int Id { get; set; }
+        public string? Name { get; set; }
+        public string? Description { get; set; }
+        public decimal Price { get; set; }
+        public int? SubcategoryId { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public List<ProductImageDto> Images { get; set; } = new List<ProductImageDto>();
     }
 
     //Crear size DTO
